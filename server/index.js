@@ -10,6 +10,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const { getCoordinatesFromAddress, getRoadMatrix, getRouteDetails, optimizeWithMatrix } = require('./utils/routeOptimizer');
+const { getNearbyPOIs } = require('./utils/poiFinder');
 
 app.get('/', (req, res) => {
   res.json({ message: 'Serveur GPS Livraison actif' });
@@ -17,13 +18,17 @@ app.get('/', (req, res) => {
 
 app.post('/api/optimize-route', async (req, res) => {
   try {
-    const { addresses } = req.body;
+    const { addresses, mode = 'driving', extraWaypoints = [] } = req.body;
 
+    const validModes = ['driving', 'cycling', 'walking', 'transit'];
+    if (!validModes.includes(mode)) {
+      return res.status(400).json({ error: 'Mode de transport invalide' });
+    }
     if (!addresses || addresses.length === 0) {
       return res.status(400).json({ error: 'Au moins une adresse est requise' });
     }
 
-    // 1. Géocodage (Nominatim, 1 req/s)
+    // 1. Géocodage des adresses saisies (Nominatim, 1 req/s)
     const coordinates = [];
     for (let i = 0; i < addresses.length; i++) {
       const address = addresses[i];
@@ -39,14 +44,18 @@ app.post('/api/optimize-route', async (req, res) => {
       }
     }
 
-    // 2. Matrice des durées réelles sur routes
-    const matrix = await getRoadMatrix(coordinates);
+    // 2. Ajouter les points d'intérêt choisis par l'utilisateur (déjà géocodés)
+    const allCoordinates = [
+      ...coordinates,
+      ...extraWaypoints.map(p => ({ address: p.name, lat: p.lat, lng: p.lng, isPOI: true })),
+    ];
 
-    // 3. Optimisation (plus proche voisin + 2-opt) avec les durées réelles
-    const optimizedRoute = optimizeWithMatrix(coordinates, matrix);
+    // 3. Matrice des durées réelles + optimisation
+    const matrix = await getRoadMatrix(allCoordinates, mode);
+    const optimizedRoute = optimizeWithMatrix(allCoordinates, matrix);
 
-    // 4. Géométrie et stats du trajet réel
-    const { geometry, distanceKm, durationMinutes } = await getRouteDetails(optimizedRoute);
+    // 4. Géométrie et stats réelles du trajet
+    const { geometry, distanceKm, durationMinutes } = await getRouteDetails(optimizedRoute, mode);
 
     res.json({
       success: true,
@@ -54,11 +63,25 @@ app.post('/api/optimize-route', async (req, res) => {
       totalDistance: distanceKm,
       estimatedMinutes: durationMinutes,
       routeGeometry: geometry,
-      waypoints: optimizedRoute.length
+      mode,
+      waypoints: optimizedRoute.length,
     });
   } catch (error) {
     console.error('Erreur:', error.message);
     res.status(500).json({ error: 'Erreur serveur : ' + error.message });
+  }
+});
+
+// Recherche de lieux d'intérêt autour du trajet
+app.post('/api/pois', async (req, res) => {
+  try {
+    const { bounds } = req.body;
+    if (!bounds) return res.status(400).json({ error: 'Bounds requis' });
+    const pois = await getNearbyPOIs(bounds);
+    res.json({ success: true, pois });
+  } catch (error) {
+    console.error('POI error:', error.message);
+    res.status(500).json({ error: 'Impossible de récupérer les lieux : ' + error.message });
   }
 });
 

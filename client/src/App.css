@@ -51,6 +51,65 @@ body {
   height: 100%;
 }
 
+/* Transport mode selector */
+.mode-selector {
+  margin-bottom: 20px;
+}
+
+.mode-label {
+  font-size: 12px;
+  color: #999;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.mode-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  border-color: #4CAF50;
+  background: #f1f8f1;
+}
+
+.mode-btn--active {
+  border-color: #4CAF50;
+  background: #e8f5e9;
+}
+
+.mode-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.mode-text {
+  font-size: 10px;
+  color: #555;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.mode-btn--active .mode-text {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
 /* Form Styles */
 .address-form {
   display: flex;
@@ -238,6 +297,107 @@ body {
   color: #2e7d32;
   font-weight: 600;
   font-size: 14px;
+}
+
+/* POI Selector */
+.poi-panel {
+  margin-top: 15px;
+  border: 1px solid #ffe0b2;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff8f0;
+}
+
+.poi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  background: #fff3e0;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e65100;
+  text-align: left;
+}
+
+.poi-chevron {
+  font-size: 10px;
+}
+
+.poi-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #999;
+}
+
+.poi-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.poi-group {
+  margin-bottom: 10px;
+}
+
+.poi-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #bf360c;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.poi-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+  transition: background 0.15s;
+}
+
+.poi-item:hover {
+  background: #ffe0b2;
+}
+
+.poi-item--checked {
+  background: #ffe0b2;
+  font-weight: 600;
+}
+
+.poi-name {
+  flex: 1;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.btn-add-pois {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  background: #FF9800;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-add-pois:hover:not(:disabled) {
+  background: #f57c00;
+}
+
+.btn-add-pois:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  color: #888;
 }
 
 /* Leaflet customization */

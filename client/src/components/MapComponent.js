@@ -11,10 +11,18 @@ L.Icon.Default.mergeOptions({
 
 const POINT_COLORS = { start: '#2196F3', end: '#FF5722', middle: '#4CAF50' };
 
-const MapComponent = forwardRef(({ optimizedRoute }, ref) => {
+const MODE_ROUTE_COLOR = {
+  driving: '#1565C0',  // bleu
+  cycling: '#2E7D32',  // vert
+  walking: '#E65100',  // orange
+  transit: '#6A1B9A',  // violet
+};
+
+const MapComponent = forwardRef(({ optimizedRoute, pois }, ref) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef([]);
+  const poiMarkersRef = useRef([]);
   const lineRef = useRef(null);
 
   useEffect(() => {
@@ -38,7 +46,7 @@ const MapComponent = forwardRef(({ optimizedRoute }, ref) => {
 
     if (!optimizedRoute) return;
 
-    const { optimizedRoute: route, routeGeometry } = optimizedRoute;
+    const { optimizedRoute: route, routeGeometry, mode } = optimizedRoute;
     const bounds = L.latLngBounds();
 
     // Marqueurs
@@ -66,10 +74,11 @@ const MapComponent = forwardRef(({ optimizedRoute }, ref) => {
     });
 
     // Tracé du chemin : GeoJSON OSRM (vraies routes) ou lignes droites en fallback
+    const routeColor = MODE_ROUTE_COLOR[mode] || MODE_ROUTE_COLOR.driving;
     if (routeGeometry) {
       const latlngs = routeGeometry.coordinates.map(([lng, lat]) => [lat, lng]);
       lineRef.current = L.polyline(latlngs, {
-        color: '#1565C0',
+        color: routeColor,
         weight: 5,
         opacity: 0.75,
       }).addTo(map.current);
@@ -87,6 +96,31 @@ const MapComponent = forwardRef(({ optimizedRoute }, ref) => {
       map.current.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [optimizedRoute]);
+
+  // Marqueurs des POIs (lieux d'intérêt autour du trajet)
+  useEffect(() => {
+    if (!map.current) return;
+    poiMarkersRef.current.forEach(m => map.current.removeLayer(m));
+    poiMarkersRef.current = [];
+    if (!pois || pois.length === 0) return;
+
+    pois.forEach(poi => {
+      const marker = L.circleMarker([poi.lat, poi.lng], {
+        radius: 7,
+        fillColor: '#FF9800',
+        color: 'white',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9,
+      }).bindPopup(
+        `<div style="font-size:12px;line-height:1.6">
+          <strong>${poi.icon} ${poi.name}</strong><br/>
+          <em style="color:#888">${poi.categoryLabel}</em>
+        </div>`
+      ).addTo(map.current);
+      poiMarkersRef.current.push(marker);
+    });
+  }, [pois]);
 
   return (
     <div
