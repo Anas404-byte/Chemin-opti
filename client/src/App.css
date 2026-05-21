@@ -327,6 +327,57 @@ body {
   font-size: 10px;
 }
 
+.poi-body {
+  padding: 10px 12px;
+}
+
+.poi-idle {
+  text-align: center;
+  padding: 6px 0 10px;
+}
+
+.poi-idle p {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.poi-status {
+  font-size: 12px;
+  color: #e65100;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.poi-error-box {
+  text-align: center;
+  padding: 6px 0 10px;
+}
+
+.poi-error-box p {
+  font-size: 12px;
+  color: #c62828;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.btn-search-pois {
+  padding: 8px 16px;
+  background: #FF9800;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-search-pois:hover {
+  background: #f57c00;
+}
+
 .poi-empty {
   padding: 10px 12px;
   font-size: 12px;

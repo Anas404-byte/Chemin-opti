@@ -12,7 +12,7 @@ const TRANSPORT_MODES = [
   { id: 'transit',  label: 'Transport en commun', icon: '🚌' },
 ];
 
-function getBounds(route, padding = 0.05) {
+function getBounds(route, padding = 0.08) {
   const lats = route.map(p => p.lat);
   const lngs = route.map(p => p.lng);
   return {
@@ -24,14 +24,16 @@ function getBounds(route, padding = 0.05) {
 }
 
 function App() {
-  const [addresses, setAddresses]         = useState([]);
-  const [mode, setMode]                   = useState('driving');
+  const [addresses, setAddresses]           = useState([]);
+  const [mode, setMode]                     = useState('driving');
   const [optimizedRoute, setOptimizedRoute] = useState(null);
-  const [loading, setLoading]             = useState(false);
-  const [error, setError]                 = useState(null);
-  const [pois, setPois]                   = useState(null);
-  const [poisLoading, setPoisLoading]     = useState(false);
-  const mapRef = useRef(null);
+  const [loading, setLoading]               = useState(false);
+  const [error, setError]                   = useState(null);
+  const [pois, setPois]                     = useState(null);       // null = pas encore cherché
+  const [poisLoading, setPoisLoading]       = useState(false);
+  const [poisError, setPoisError]           = useState(null);
+  const currentRoute                        = useRef(null);
+  const mapRef                              = useRef(null);
 
   const handleAddAddress = (address) => {
     setAddresses(prev => [...prev, address]);
@@ -68,39 +70,46 @@ function App() {
       return;
     }
     setPois(null);
+    setPoisError(null);
     try {
       const data = await callOptimize();
       setOptimizedRoute(data);
-      fetchPOIs(data.optimizedRoute);
+      currentRoute.current = data.optimizedRoute;
     } catch (err) {
       setError(err.message);
     }
   };
 
-  async function fetchPOIs(route) {
+  const handleSearchPOIs = async () => {
+    if (!currentRoute.current) return;
     setPoisLoading(true);
+    setPoisError(null);
+    setPois(null);
     try {
-      const bounds = getBounds(route);
+      const bounds = getBounds(currentRoute.current);
       const res = await fetch('/api/pois', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bounds }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error('Erreur serveur');
       const data = await res.json();
       setPois(data.pois || []);
-    } catch {
+    } catch (err) {
+      setPoisError("Impossible de récupérer les lieux. Réessayez dans quelques secondes.");
       setPois([]);
     } finally {
       setPoisLoading(false);
     }
-  }
+  };
 
   const handleAddPOIs = async (selectedPois) => {
     try {
       const data = await callOptimize(selectedPois);
       setOptimizedRoute(data);
-      setPois(null); // reset le sélecteur après ajout
+      currentRoute.current = data.optimizedRoute;
+      setPois(null);
+      setPoisError(null);
     } catch (err) {
       setError(err.message);
     }
@@ -110,7 +119,9 @@ function App() {
     setAddresses([]);
     setOptimizedRoute(null);
     setPois(null);
+    setPoisError(null);
     setError(null);
+    currentRoute.current = null;
   };
 
   return (
@@ -126,7 +137,7 @@ function App() {
               <button
                 key={m.id}
                 className={`mode-btn${mode === m.id ? ' mode-btn--active' : ''}`}
-                onClick={() => { setMode(m.id); setOptimizedRoute(null); setPois(null); }}
+                onClick={() => { setMode(m.id); setOptimizedRoute(null); setPois(null); currentRoute.current = null; }}
                 title={m.label}
               >
                 <span className="mode-icon">{m.icon}</span>
@@ -159,10 +170,13 @@ function App() {
 
         {optimizedRoute && <RouteResults route={optimizedRoute} />}
 
-        {(poisLoading || pois !== null) && (
+        {/* Section lieux à visiter — toujours visible après optimisation */}
+        {optimizedRoute && (
           <POISelector
             pois={pois}
             loading={poisLoading}
+            error={poisError}
+            onSearch={handleSearchPOIs}
             onAddToRoute={handleAddPOIs}
           />
         )}
