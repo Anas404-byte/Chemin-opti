@@ -1,50 +1,65 @@
 const axios = require('axios');
 
-const OSRM = 'http://router.project-osrm.org';
+// Chaque mode utilise un serveur OSRM dédié avec le bon profil de routage.
+// - driving : évite les zones piétonnes, emprunte les autoroutes
+// - cycling  : évite les autoroutes, utilise les pistes cyclables
+// - foot     : chemins piétons, interdit aux véhicules
+// transit n'est pas géré nativement par OSRM → approximation pied
+const OSRM_CONFIGS = {
+  driving: { base: 'https://router.project-osrm.org',              profile: 'driving' },
+  cycling: { base: 'https://routing.openstreetmap.de/routed-bike', profile: 'cycling' },
+  walking: { base: 'https://routing.openstreetmap.de/routed-foot', profile: 'foot'    },
+  transit: { base: 'https://routing.openstreetmap.de/routed-foot', profile: 'foot'    },
+};
+
+function osrmConfig(mode) {
+  return OSRM_CONFIGS[mode] || OSRM_CONFIGS.driving;
+}
 
 async function getCoordinatesFromAddress(address) {
   const response = await axios.get('https://nominatim.openstreetmap.org/search', {
     params: { q: address, format: 'json', limit: 1 },
-    headers: { 'User-Agent': 'GPSLivraison/1.0' }
+    headers: { 'User-Agent': 'GPSLivraison/1.0' },
   });
   if (response.data.length === 0) throw new Error('Adresse non trouvée');
   const { lat, lon } = response.data[0];
   return { lat: parseFloat(lat), lng: parseFloat(lon) };
 }
 
-// Matrice des durées réelles sur routes (OSRM Table API)
-async function getRoadMatrix(points) {
+// Matrice des durées réelles (secondes) entre chaque paire de points
+async function getRoadMatrix(points, mode = 'driving') {
+  const { base, profile } = osrmConfig(mode);
   const coords = points.map(p => `${p.lng},${p.lat}`).join(';');
-  const res = await axios.get(`${OSRM}/table/v1/driving/${coords}`, {
+  const res = await axios.get(`${base}/table/v1/${profile}/${coords}`, {
     params: { annotations: 'duration' },
-    timeout: 15000
+    timeout: 20000,
   });
-  if (res.data.code !== 'Ok') throw new Error('OSRM table: ' + res.data.code);
-  return res.data.durations; // matrice N×N en secondes
+  if (res.data.code !== 'Ok') throw new Error('OSRM table error: ' + res.data.code);
+  return res.data.durations;
 }
 
-// Géométrie et stats réelles du trajet (OSRM Route API)
-async function getRouteDetails(orderedPoints) {
+// Géométrie GeoJSON + distance et durée réelles du trajet complet
+async function getRouteDetails(orderedPoints, mode = 'driving') {
+  const { base, profile } = osrmConfig(mode);
   const coords = orderedPoints.map(p => `${p.lng},${p.lat}`).join(';');
-  const res = await axios.get(`${OSRM}/route/v1/driving/${coords}`, {
+  const res = await axios.get(`${base}/route/v1/${profile}/${coords}`, {
     params: { overview: 'full', geometries: 'geojson' },
-    timeout: 15000
+    timeout: 20000,
   });
-  if (res.data.code !== 'Ok') throw new Error('OSRM route: ' + res.data.code);
+  if (res.data.code !== 'Ok') throw new Error('OSRM route error: ' + res.data.code);
   const route = res.data.routes[0];
   return {
     geometry: route.geometry,
     distanceKm: Math.round(route.distance / 10) / 100,
-    durationMinutes: Math.round(route.duration / 60)
+    durationMinutes: Math.round(route.duration / 60),
   };
 }
 
-// Optimisation par plus proche voisin + 2-opt en utilisant la matrice de durées
+// Optimisation : plus proche voisin + 2-opt sur la matrice de durées
 function optimizeWithMatrix(coordinates, matrix) {
   const n = coordinates.length;
   if (n <= 1) return coordinates;
 
-  // Étape 1 : Plus proche voisin
   const visited = new Set([0]);
   const idx = [0];
   while (idx.length < n) {
@@ -60,9 +75,7 @@ function optimizeWithMatrix(coordinates, matrix) {
     visited.add(best);
   }
 
-  // Étape 2 : 2-opt
-  let improved = true;
-  let iter = 0;
+  let improved = true, iter = 0;
   while (improved && iter < 50) {
     improved = false;
     iter++;
