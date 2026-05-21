@@ -39,8 +39,11 @@ async function getNearbyPOIs(bbox) {
 out body center 40;
 `.trim();
 
-  const res = await axios.post(OVERPASS_URL, query, {
-    headers: { 'Content-Type': 'text/plain' },
+  const params = new URLSearchParams();
+  params.append('data', query);
+
+  const res = await axios.post(OVERPASS_URL, params, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     timeout: 35000,
   });
 
